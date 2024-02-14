@@ -1,0 +1,183 @@
+<!doctype><html><head>
+  <meta charset=utf8>
+  <title>ajuntar</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.2.1/exceljs.js" integrity="sha512-Y139xHfsByvkHgAogLbFJsPh7Fd55HrWlD3n2tgd7Mhyx7sE/ePtLPNQVeWCSViDPQe6LlgeXWHMFEUBUCmrfA==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.3/FileSaver.min.js" integrity="sha512-DvLlX4EDfBZuesenAya2TOiF+cR7GbRsV+IElolKTYIj8JJHr9BFTcznTuRFabG26vcVsmDCcv2dL7m8Ov1XfA==" crossorigin="anonymous"></script>
+  <style>
+    table tr:first-child{
+      background:#eee;
+    }
+    input[type=number]{
+      text-align:right;
+    }
+  </style>
+</head><body>
+
+<h1>
+  <a href="index.html">Inici</a> &rsaquo;
+  Ajuntar excels per columna en comú
+</h1>
+
+<div id=app>
+  <div v-for="f,i in fitxers">
+    <input type=file @change="read_excel($event,i)"> |
+
+    <!--selecciona fila on hi ha els noms de les columnes-->
+    <span
+      v-if="f"
+      title="número de fila on hi ha els noms de les columnes"
+    >
+      fila:
+      <input type=number v-model="fila_inicial[i]" style="width:40px">
+      &nbsp;
+    </span>
+
+    <!--selecciona columna-->
+    <b>Selecciona columna </b>
+    <select v-if="f==null" disabled><option>--selecciona columna--</option></select>
+    <select
+      v-if="f"
+      v-model="columna_triada[i]"
+    >
+      <option
+        v-for="col,j in f.columns"
+        :value="col"
+      >
+        {{j+1}} -
+        {{col.values.slice(fila_inicial[i]).find(v=>v)}}
+      </option>
+    </select>
+  </div>
+
+  <div v-if="columna_triada.every(c=>c)">
+    <button
+      @click="ajuntar_excels()"
+      style="
+        padding:0.618em 1.618em;
+        margin-top:5px;
+      "
+    >AJUNTAR per
+      "{{columna_triada[0].values.slice(fila_inicial[0]).find(v=>v)}}"
+      i
+      "{{columna_triada[1].values.slice(fila_inicial[1]).find(v=>v)}}"
+    </button>
+  </div>
+
+  <div v-if="fitxer_final" style="margin-top:5px">
+    <b>Vista prèvia fitxer final ({{fitxer_final.length}} files)</b>
+    <table border=1
+      style="
+        border-collapse:collapse;
+        font-size:x-small;
+        font-family:monospace;
+      "
+    >
+      <tr v-for="row in fitxer_final.slice(0,files_vista_previa)">
+        <td v-for="cell in row">{{cell}}</td>
+      </tr>
+      <tr v-if="fitxer_final.length>files_vista_previa">
+        <td :colspan="fitxer_final[0].length">
+          <b>...{{fitxer_final.length-files_vista_previa}} files més</b>
+        </td>
+      </tr>
+      <tr>
+        <td :colspan="fitxer_final[0].length">
+          Estàs veient les primeres
+          <input type=number v-model.number="files_vista_previa" min=0>
+          files
+        </td>
+      </tr>
+    </table>
+
+    <div v-if="fitxer_final && fitxer_final.length==1" style="background:red">
+      ~les dues columnes seleccionades no tenen valors en comú
+    </div>
+
+    <button
+      @click="descarregar_fitxer_final()"
+      style="
+        padding:0.618em 1.618em;
+        margin-top:5px;
+      "
+    >DESCARREGAR fitxer_final.xlsx</button>
+  </div>
+</div>
+
+<script>
+  let app=Vue.createApp({
+    data(){return{
+      fitxers:[null, null],
+      fila_inicial:[3,4],
+      columna_triada:[null,null],
+      fitxer_final:null,
+      files_vista_previa:3,
+    }},
+
+    methods:{
+      read_excel(event, index_fitxer){
+        let file   = event.target.files[0];
+        let wb = new ExcelJS.Workbook();
+        wb.xlsx.load(file).then(w=>{
+          let sheet = w.worksheets[0];
+          app.fitxers[index_fitxer] = sheet;
+          console.log(sheet);
+        });
+      },
+
+      ajuntar_excels(){
+        let wb = new ExcelJS.Workbook();
+
+        let primera_columna = Array.from(new Set([
+          ...this.columna_triada[0].values.slice(this.fila_inicial[0]+1),
+          ...this.columna_triada[1].values.slice(this.fila_inicial[1]+1),
+        ]));
+
+        console.log(primera_columna.find(el=>el.includes(" ")));
+
+
+        let primera_fila=[
+          "columna en comú",
+          ...this.fitxers[0].columns.map(c=>c.values.slice(this.fila_inicial[0]).find(v=>v)),
+          ...this.fitxers[1].columns.map(c=>c.values.slice(this.fila_inicial[1]).find(v=>v)),
+        ];
+
+        //fitxer final = una fila per cada valor de la columna comuna
+        this.fitxer_final = [
+          primera_fila,
+          //files ajuntades van aquí
+        ];
+
+        primera_columna.forEach(val=>{
+          let index_f0 = this.columna_triada[0].values.indexOf(val);
+          let index_f1 = this.columna_triada[1].values.indexOf(val);
+
+          if(index_f0==-1 || index_f1==-1) return;
+
+          let fila_f0  = this.fitxers[0].columns.map(col=>col.values[index_f0]);
+          let fila_f1  = this.fitxers[1].columns.map(col=>col.values[index_f1]);
+          let fila_final =[
+            val,
+            ...fila_f0,
+            ...fila_f1,
+          ];
+          this.fitxer_final.push(fila_final);
+        });
+      },
+
+      descarregar_fitxer_final(){
+        let wb = new ExcelJS.Workbook();
+        let sh = wb.addWorksheet('Merged');
+        this.fitxer_final.forEach(row=>{
+          sh.addRow(row);
+        });
+
+        //export workbook to xlsx file
+        const fileType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        wb.xlsx.writeBuffer().
+          then(buffer=>saveAs(new Blob([buffer],{type:fileType}),'fitxer_final.xlsx'))
+          .catch(err=>console.log('Error writing excel file',err));
+      },
+    },
+  }).mount("#app");
+</script>
