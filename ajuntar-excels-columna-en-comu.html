@@ -1,7 +1,7 @@
 <!doctype><html><head>
   <meta charset=utf8>
   <title>ajuntar</title>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.2.1/exceljs.js" integrity="sha512-Y139xHfsByvkHgAogLbFJsPh7Fd55HrWlD3n2tgd7Mhyx7sE/ePtLPNQVeWCSViDPQe6LlgeXWHMFEUBUCmrfA==" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.3/FileSaver.min.js" integrity="sha512-DvLlX4EDfBZuesenAya2TOiF+cR7GbRsV+IElolKTYIj8JJHr9BFTcznTuRFabG26vcVsmDCcv2dL7m8Ov1XfA==" crossorigin="anonymous"></script>
   <style>
@@ -65,7 +65,7 @@
   </div>
 
   <div v-if="fitxer_final" style="margin-top:5px">
-    <b>Vista prèvia fitxer final ({{fitxer_final.length}} files)</b>
+    <b>Vista prèvia "fitxer_final.xlsx" ({{fitxer_final.length}} files)</b>
     <table border=1
       style="
         border-collapse:collapse;
@@ -85,7 +85,14 @@
         <td :colspan="fitxer_final[0].length">
           Estàs veient les primeres
           <input type=number v-model.number="files_vista_previa" min=0>
-          files
+          files |
+          <a
+            href=#
+            :disabled="files_vista_previa==fitxer_final.length"
+            @click="files_vista_previa=fitxer_final.length"
+          >
+            Veure tot ({{fitxer_final.length}} files)
+          </a>
         </td>
       </tr>
     </table>
@@ -116,7 +123,7 @@
 
     methods:{
       read_excel(event, index_fitxer){
-        let file   = event.target.files[0];
+        let file = event.target.files[0];
         let wb = new ExcelJS.Workbook();
         wb.xlsx.load(file).then(w=>{
           let sheet = w.worksheets[0];
@@ -133,9 +140,6 @@
           ...this.columna_triada[1].values.slice(this.fila_inicial[1]+1),
         ]));
 
-        console.log(primera_columna.find(el=>el.includes(" ")));
-
-
         let primera_fila=[
           "columna en comú",
           ...this.fitxers[0].columns.map(c=>c.values.slice(this.fila_inicial[0]).find(v=>v)),
@@ -143,7 +147,7 @@
         ];
 
         //fitxer final = una fila per cada valor de la columna comuna
-        this.fitxer_final = [
+        let fitxer_final=[
           primera_fila,
           //files ajuntades van aquí
         ];
@@ -161,8 +165,10 @@
             ...fila_f0,
             ...fila_f1,
           ];
-          this.fitxer_final.push(fila_final);
+          fitxer_final.push(fila_final);
         });
+
+        this.fitxer_final = fitxer_final;
       },
 
       descarregar_fitxer_final(){
